@@ -286,8 +286,70 @@
       try{
         const probe = await fetchFirst(CSV_URLS, 'text');
         const DBGCSV= document.getElementById('debugCsv');
-        DBGCSV.hidden=false; DBGCSV.innerHTML = `<div><b>Rutas CSV</b></div>` + probe.log.map(x=>`<div><code>${x.url}</code> → <span class="chip ${x.status===200?'ok':(x.status===404?'err':'warn')}">${x.status}</span></div>`).join('');
-        if(!probe.body){ MSG.textContent = 'No se pudo cargar CSV desde ninguna ruta.'; return; }
+        DBGCSV.hidden=false; DBGCSV.innerHTML = `<div><b>Rutas CSV</b></div>` + probe.log.map(x=>`<div><code>${x.url}</code> → <span class="chip ${x.status===
+
+
+
+
+200?'ok'<script>
+// Helpers para construir rutas robustas
+const ROOT = p => location.origin + p;
+const SAME = p => new URL(p, location.href).toString();
+
+// CSV: mismo directorio → raíz → /data → ramas raw
+const CSV_URLS = [
+  SAME('dane_tolima_poblacion.csv'),     // mismo directorio que el visor (/data/)
+  SAME('../dane_tolima_poblacion.csv'),  // si el CSV quedó en la raíz del sitio
+  ROOT('/dane_tolima_poblacion.csv'),
+  ROOT('/data/dane_tolima_poblacion.csv'),
+  'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/dane_tolima_poblacion.csv',
+  'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/data/dane_tolima_poblacion.csv',
+  'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/dane_tolima_poblacion.csv',
+  'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/dane_tolima_poblacion.csv',
+  'https://raw.githubusercontent.com/fundacionreaching/data/main/dane_tolima_poblacion.csv',
+  'https://raw.githubusercontent.com/fundacionreaching/data/main/data/dane_tolima_poblacion.csv'
+];
+
+// GEOJSON: intenta mismo directorio → raíz → /data → ramas raw
+const RUTAS = {
+  municipios: [
+    SAME('tolima_municipios.geojson'),
+    SAME('../tolima_municipios.geojson'),
+    ROOT('/tolima_municipios.geojson'),
+    ROOT('/data/tolima_municipios.geojson'),
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/tolima_municipios.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/data/tolima_municipios.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/tolima_municipios.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/tolima_municipios.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/data/main/tolima_municipios.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/data/main/data/tolima_municipios.geojson'
+  ],
+  comunas: [
+    SAME('ibague_comunas.geojson'),
+    SAME('../ibague_comunas.geojson'),
+    ROOT('/ibague_comunas.geojson'),
+    ROOT('/data/ibague_comunas.geojson'),
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/ibague_comunas.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/data/ibague_comunas.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/ibague_comunas.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/ibague_comunas.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/data/main/ibague_comunas.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/data/main/data/ibague_comunas.geojson'
+  ],
+  corregimientos: [
+    SAME('ibague_corregimientos.geojson'),
+    SAME('../ibague_corregimientos.geojson'),
+    ROOT('/ibague_corregimientos.geojson'),
+    ROOT('/data/ibague_corregimientos.geojson'),
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/ibague_corregimientos.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/data/ibague_corregimientos.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/ibague_corregimientos.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/ibague_corregimientos.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/data/main/ibague_corregimientos.geojson',
+    'https://raw.githubusercontent.com/fundacionreaching/data/main/data/ibague_corregimientos.geojson'
+  ]
+};
+</script>
         const text = probe.body;
         const url = probe.url;
         const datos = parseCSV(text);
