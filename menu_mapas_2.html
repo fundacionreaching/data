@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mapas + DANE Choropleth · Fundación Reaching</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <style>
+    :root{ --bg:#0b1220;--card:#0f172a;--txt:#e5e7eb;--muted:#9ca3af;--line:#1f2937;--accent:#fbbf24;--btn:#1d4ed8;--ok:#22c55e;--warn:#f59e0b; }
+    html,body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:var(--bg);color:var(--txt)}
+    .wrap{max-width:1100px;margin:auto;padding:16px}
+    h1{font-size:clamp(18px,2.4vw,24px);margin:0;font-weight:800;letter-spacing:.2px}
+    .muted{color:var(--muted);font-size:13px}
+    .card{background:linear-gradient(180deg,#0f172a,#0b1220);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.25);margin-bottom:16px}
+    .head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+    .btn{appearance:none;border:1px solid #0b3ea1;background:linear-gradient(180deg,#2563eb,#1d4ed8);color:white;padding:8px 12px;border-radius:12px;text-decoration:none;font-weight:700;cursor:pointer}
+    .btn.secondary{background:transparent;border-color:#374151;color:#e5e7eb}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .section{padding:12px 14px}
+    .shell{position:relative}
+    iframe{width:100%;height:min(70vh,800px);min-height:420px;border:0;background:#0a0f1d}
+    @media(max-width:640px){ iframe{height:65vh;min-height:360px} }
+    .placeholder{position:absolute;inset:0;display:grid;place-items:center;background:repeating-linear-gradient(45deg,#0d1221 0 10px,#0f172a 10px 20px);color:#cbd5e1}
+    .hide{display:none}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#111827;border:1px solid var(--line);font-size:12px;color:#cbd5e1}
+    .cta{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:linear-gradient(180deg,#22c55e,#16a34a);color:#052e16;border:1px solid #14532d;font-weight:800;text-transform:uppercase;letter-spacing:.3px;text-decoration:none}
+    .foot{padding:10px 14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .grid{display:grid;gap:10px}
+    @media(min-width:900px){.grid.cols-3{grid-template-columns:repeat(3,1fr)}}
+    .kpi{background:#0b1220;border:1px solid var(--line);border-radius:14px;padding:10px}
+    .kpi .lbl{font-size:12px;color:var(--muted)}
+    .kpi .val{font-size:18px;font-weight:800}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{border-bottom:1px solid #1f2937;padding:8px;text-align:left}
+    th{color:#cbd5e1;font-weight:700}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    select{background:#0b1220;color:#e5e7eb;border:1px solid #374151;border-radius:10px;padding:8px}
+    /* Leaflet overrides */
+    .legend{line-height:1}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <!-- === PANEL MAPAS (EXTERNO) === -->
+    <section class="card" aria-label="Panel de Mapas (embed)">
+      <div class="head">
+        <div>
+          <h1>Panel de Mapas</h1>
+          <div class="muted">Fundación Reaching — versión ligera para incrustar</div>
+        </div>
+        <div class="actions">
+          <a class="btn" href="https://fundacionreaching.github.io/menu_mapas_2.html" target="_blank" rel="noopener">Abrir versión completa</a>
+          <button id="cargar" class="btn secondary" type="button">Cargar aquí</button>
+        </div>
+      </div>
+      <div class="section shell" id="shell" data-src="https://fundacionreaching.github.io/menu_mapas_2.html">
+        <div id="placeholder" class="placeholder" aria-hidden="true">
+          <span class="pill">Mapas listos • clic en “Cargar aquí”</span>
+        </div>
+        <iframe id="mapas" title="Panel de Mapas — Fundación Reaching" loading="lazy" referrerpolicy="no-referrer-when-downgrade" class="hide"
+          sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+          allow="fullscreen *; geolocation *; clipboard-write *; accelerometer *; gyroscope *; autoplay *; encrypted-media *"></iframe>
+      </div>
+      <div class="foot">
+        <span class="muted">Carga bajo demanda para ahorrar datos — móvil primero.</span>
+        <a class="cta" href="https://fundacionreaching.github.io/menu_mapas_2.html" target="_blank" rel="noopener">Ver versión completa</a>
+      </div>
+    </section>
+
+    <!-- === DATOS DANE (INTEGRACIÓN DESDE GITHUB) === -->
+    <section class="card" aria-label="Datos DANE — Población Tolima/Ibagué">
+      <div class="head">
+        <div>
+          <h1>Datos de Población (DANE)</h1>
+          <div class="muted">Integración ligera desde GitHub (CSV) — sin iframes</div>
+        </div>
+        <div class="actions">
+          <button id="btnRefrescar" class="btn secondary" type="button">Refrescar</button>
+          <a id="btnDescargar" class="btn" href="#" download>Descargar CSV</a>
+          <label for="selMunicipio" class="muted">Municipio:</label>
+          <select id="selMunicipio"></select>
+          <label for="selAnio" class="muted">Año:</label>
+          <select id="selAnio"></select>
+        </div>
+      </div>
+      <div class="section">
+        <div class="grid cols-3" style="margin-bottom:10px">
+          <div class="kpi"><div class="lbl">Población seleccionada</div><div class="val" id="kpiPoblacion">—</div></div>
+          <div class="kpi"><div class="lbl">Total Tolima (mismo año)</div><div class="val" id="kpiTolima">—</div></div>
+          <div class="kpi"><div class="lbl">Fuente</div><div class="val">DANE</div></div>
+        </div>
+        <div style="overflow:auto">
+          <table id="tabla">
+            <thead><tr><th>Municipio</th><th>Año</th><th>Población</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="msg" class="muted" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <!-- === MAPA TEMÁTICO (CHOROPLETH) === -->
+    <section class="card" aria-label="Mapa temático choropleth">
+      <div class="head">
+        <div>
+          <h1>Mapa Temático (Población)</h1>
+          <div class="muted">Capas propias (GeoJSON en GitHub) + CSV DANE</div>
+        </div>
+        <div class="actions row">
+          <label class="muted" for="selCapa">Capa:</label>
+          <select id="selCapa">
+            <option value="comunas">Comunas Ibagué</option>
+            <option value="corregimientos">Corregimientos Ibagué</option>
+            <option value="municipios">Municipios Tolima</option>
+          </select>
+          <span class="muted">El "Año" usa el selector de DANE ↑</span>
+        </div>
+      </div>
+      <div class="section" style="padding:0">
+        <div id="mapChoro" style="width:100%;height:65vh"></div>
+      </div>
+      <div class="foot">
+        <span class="muted">Archivos esperados (ajusta rutas en el script): /data/ibague_comunas.geojson, /data/ibague_corregimientos.geojson, /data/tolima_municipios.geojson</span>
+        <a class="cta" href="#" id="btnFullMap">Abrir en pestaña</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/chroma-js@2.4.2/chroma.min.js"></script>
+  <script>
+    // ========== MAPAS: CARGA DIFERIDA ==========
+    (function(){
+      const shell = document.getElementById('shell');
+      const iframe = document.getElementById('mapas');
+      const btn = document.getElementById('cargar');
+      const ph = document.getElementById('placeholder');
+      const src = shell?.dataset?.src;
+      let loaded = false;
+      function load(){ if(loaded || !src) return; iframe.src = src; iframe.classList.remove('hide'); ph?.classList.add('hide'); loaded = true; }
+      btn?.addEventListener('click', load);
+      if('IntersectionObserver' in window){ const io = new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting){ load(); io.disconnect(); }}); }, {rootMargin:'120px'}); io.observe(shell); }
+      let fallbackTimer = setTimeout(()=>{ if(!loaded){ ph.innerHTML = '<span class="pill">La carga puede tardar… También puedes abrir en pestaña.</span>'; } }, 8000);
+      iframe.addEventListener('load', ()=>{ clearTimeout(fallbackTimer); try{ const doc = iframe.contentDocument || iframe.contentWindow?.document; if(!doc) return; doc.querySelectorAll('a[href]').forEach(a=>{ a.target = '_blank'; a.rel = 'noopener noreferrer'; }); }catch(err){ /* cross-origin */ } });
+    })();
+
+    // ========== DANE: CARGA CSV DESDE GITHUB ==========
+    (function(){
+      const MSG = document.getElementById('msg');
+      const TBL = document.querySelector('#tabla tbody');
+      const KPI1 = document.getElementById('kpiPoblacion');
+      const KPI2 = document.getElementById('kpiTolima');
+      const SELM = document.getElementById('selMunicipio');
+      const SELA = document.getElementById('selAnio');
+      const BTNREF = document.getElementById('btnRefrescar');
+      const BTNDL = document.getElementById('btnDescargar');
+
+      // 👉 Ajusta esta lista a tu repo/archivo real
+      const CANDIDATOS = [
+        'https://raw.githubusercontent.com/fundacionreaching/datos/main/dane_tolima_poblacion.csv',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/dane_tolima_poblacion.csv',
+        location.origin + '/data/dane_tolima_poblacion.csv'
+      ];
+
+      window.DANE_DATOS = [];
+
+      async function fetchPrimeroQueSirva(urls){
+        for(const u of urls){ try{ const r = await fetch(u, {cache:'no-store'}); if(r.ok){ return {url:u, text: await r.text()}; } }catch(e){} }
+        throw new Error('No se pudo descargar el CSV. Verifica la URL.');
+      }
+
+      function parseCSV(text){
+        const lines = text.split(/\r?\n/).filter(Boolean);
+        if(lines.length<2) return [];
+        const headers = lines[0].split(',').map(h=>h.trim().toLowerCase());
+        const idxM = headers.findIndex(h=>/municipio|mpio|ciudad/.test(h));
+        const idxA = headers.findIndex(h=>/año|anio|year/.test(h));
+        const idxP = headers.findIndex(h=>/poblaci|pob_total|total/.test(h));
+        return lines.slice(1).map(row=>{
+          const cols = row.split(',');
+          return {
+            muni: (cols[idxM]||'').trim(),
+            anio: Number((cols[idxA]||'').trim()),
+            pob: Number((cols[idxP]||'').replace(/\./g,'').replace(/\s/g,'').trim())
+          };
+        }).filter(r=>r.muni && r.anio && !Number.isNaN(r.pob));
+      }
+
+      function pobTolima(anio){ return window.DANE_DATOS.filter(d=>d.anio===anio).reduce((acc,cur)=>acc+cur.pob,0); }
+
+      function llenarSelects(){
+        const municipios = Array.from(new Set(window.DANE_DATOS.map(d=>d.muni))).sort();
+        SELM.innerHTML = municipios.map(m=>`<option>${m}</option>`).join('');
+        const anios = Array.from(new Set(window.DANE_DATOS.map(d=>d.anio))).sort((a,b)=>a-b);
+        SELA.innerHTML = anios.map(a=>`<option>${a}</option>`).join('');
+        const ibg = municipios.find(m=>/ibague|ibagué/i.test(m)); if(ibg) SELM.value = ibg;
+        SELA.value = anios[anios.length-1];
+      }
+
+      function renderTabla(){
+        const muni = SELM.value; const anio = Number(SELA.value);
+        const rows = window.DANE_DATOS.filter(d=>d.muni===muni).sort((a,b)=>a.anio-b.anio);
+        TBL.innerHTML = rows.map(r=>`<tr><td>${r.muni}</td><td>${r.anio}</td><td>${r.pob.toLocaleString('es-CO')}</td></tr>`).join('');
+        const sel = rows.find(r=>r.anio===anio);
+        document.getElementById('kpiPoblacion').textContent = sel? sel.pob.toLocaleString('es-CO') : '—';
+        document.getElementById('kpiTolima').textContent = pobTolima(anio).toLocaleString('es-CO');
+        document.dispatchEvent(new CustomEvent('dane:loaded'));
+      }
+
+      async function cargar(){
+        MSG.textContent = 'Cargando CSV de población desde GitHub…';
+        try{
+          const {url, text} = await fetchPrimeroQueSirva(CANDIDATOS);
+          BTNDL.href = url;
+          window.DANE_DATOS = parseCSV(text);
+          if(!window.DANE_DATOS.length){ MSG.innerHTML = '<span class="warn">CSV sin datos o con cabeceras desconocidas. Asegura columnas: Municipio, Año, Población.</span>'; return; }
+          llenarSelects();
+          renderTabla();
+          MSG.textContent = `Registros cargados: ${window.DANE_DATOS.length.toLocaleString('es-CO')}`;
+        }catch(e){ MSG.innerHTML = '<span class="warn">No se pudo cargar el CSV. Coloca el archivo en <code>/data/dane_tolima_poblacion.csv</code> o ajusta la URL en el script.</span>'; }
+      }
+
+      document.getElementById('btnRefrescar')?.addEventListener('click', cargar);
+      SELM?.addEventListener('change', renderTabla);
+      SELA?.addEventListener('change', renderTabla);
+      cargar();
+    })();
+
+    // ========== CHOROPLETH LEAFLET ==========
+    (function(){
+      const el = document.getElementById('mapChoro'); if(!el) return;
+      const map = L.map('mapChoro', {zoomControl:true, attributionControl:true});
+      const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+      map.setView([4.442, -75.246], 10); // Ibagué
+
+      const SELCAPA = document.getElementById('selCapa');
+      const SELA = document.getElementById('selAnio');
+      const BTNFULL = document.getElementById('btnFullMap');
+
+      const RUTAS = {
+        comunas: '/data/ibague_comunas.geojson',
+        corregimientos: '/data/ibague_corregimientos.geojson',
+        municipios: '/data/tolima_municipios.geojson'
+      };
+
+      let layer; let geojsonCache = {};
+      function normalizaNombre(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim(); }
+      function getAnio(){ return Number(SELA?.value || new Date().getFullYear()); }
+
+      function pobPorFeature(props){
+        const claves = ['NOMBRE','NOMBRE_COM','COMUNA','CORREGIM','MUNICIPIO','name'];
+        const nombre = normalizaNombre(claves.map(k=>props?.[k]).find(Boolean));
+        const datos = (window.DANE_DATOS||[]).filter(d=>normalizaNombre(d.muni)===nombre);
+        const anio = getAnio();
+        const r = datos.find(d=>d.anio===anio);
+        return r?.pob ?? null;
+      }
+
+      function colorFor(v, min, max){ if(v==null) return '#334155'; const scale = chroma.scale(['#dbeafe','#60a5fa','#1d4ed8','#0b3ea1','#0b2555']).domain([min,max]); return scale(v).hex(); }
+      function styleFactory(min,max){ return f=>({color:'#0f172a', weight:1, fillOpacity:0.85, fillColor: colorFor(pobPorFeature(f.properties),min,max)}); }
+      function onEachFeatureFactory(){ return (feat, lyr)=>{ const p=feat.properties||{}; const v=pobPorFeature(p); const nombre=p.NOMBRE||p.NOMBRE_COM||p.COMUNA||p.CORREGIM||p.MUNICIPIO||p.name||'—'; lyr.bindTooltip(`${nombre}: ${v!=null? v.toLocaleString('es-CO'):'Sin dato'}`,{sticky:true}); }; }
+      function calcMinMax(geo){ const vals = geo.features.map(f=>pobPorFeature(f.properties)).filter(v=>v!=null); const min=Math.min.apply(null,vals); const max=Math.max.apply(null,vals); return {min,max}; }
+
+      async function cargarCapa(tipo){
+        const url = RUTAS[tipo]; if(!url) return;
+        try{ const geo = geojsonCache[tipo] || await fetch(url,{cache:'no-store'}).then(r=>r.json()); geojsonCache[tipo]=geo; const {min,max}=calcMinMax(geo); if(layer) map.removeLayer(layer); layer=L.geoJSON(geo,{style:styleFactory(min,max), onEachFeature:onEachFeatureFactory()}).addTo(map); try{ map.fitBounds(layer.getBounds(),{padding:[10,10]}); }catch(e){ map.setView([4.442,-75.246],10); } dibujaLeyenda(min,max); }
+        catch(e){ console.warn('No se pudo cargar GeoJSON',e); if(layer) map.removeLayer(layer); }
+      }
+
+      let legend; function dibujaLeyenda(min,max){ if(legend) legend.remove(); legend=L.control({position:'bottomright'}); legend.onAdd=function(){ const div=L.DomUtil.create('div','info legend'); Object.assign(div.style,{background:'#0f172a',border:'1px solid #1f2937',borderRadius:'10px',padding:'8px 10px',color:'#e5e7eb'}); const steps=5; const values=Array.from({length:steps},(_,i)=> Math.round(min + (i*(max-min)/(steps-1)))); div.innerHTML='<div style="color:#cbd5e1;margin-bottom:6px">Población</div>' + values.map(v=>{ const c=colorFor(v,min,max); return `<div style="display:flex;align-items:center;gap:8px;margin:2px 0"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${c}"></span><span>${v.toLocaleString('es-CO')}</span></div>`; }).join(''); return div; }; legend.addTo(map); }
+
+      function refresh(){ cargarCapa(SELCAPA.value); }
+      SELCAPA.addEventListener('change', refresh);
+      SELA.addEventListener('change', refresh);
+      document.addEventListener('dane:loaded', refresh);
+      refresh();
+      document.getElementById('btnFullMap')?.addEventListener('click', (e)=>{ e.preventDefault(); window.open(window.location.href, '_blank'); });
+    })();
+  </script>
+</body>
+</html>
