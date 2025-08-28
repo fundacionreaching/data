@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mapa de Población — Tolima · Fundación Reaching</title>
+  <title>Mapa de Población — Tolima · Fundación Reaching (v4)</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -29,6 +29,12 @@
     #map{width:100%;height:70vh;min-height:420px;border-radius:12px}
     .legend{background:white;color:#0b1220;padding:8px 10px;border-radius:10px;line-height:1.2;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
     select{background:#0b1220;color:#e5e7eb;border:1px solid #374151;border-radius:10px;padding:8px}
+    .debug{background:#0b1220;border-top:1px dashed #374151;padding:10px;border-radius:0 0 18px 18px;font-size:12px}
+    .chip{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:700}
+    .ok{background:#022c22;color:#22c55e;border:1px solid #065f46}
+    .err{background:#3f1d20;color:#fca5a5;border:1px solid #7f1d1d}
+    .warn{background:#3a2a00;color:#fbbf24;border:1px solid #92400e}
+    code{background:#0b1220;border:1px solid #1f2937;border-radius:6px;padding:2px 6px}
   </style>
 </head>
 <body>
@@ -45,6 +51,7 @@
           <select id="selMunicipio"></select>
           <label class="muted" for="selAnio">Año:</label>
           <select id="selAnio"></select>
+          <button id="btnDiag" class="btn secondary" type="button">Diagnóstico</button>
           <button id="btnRefrescar" class="btn secondary" type="button">Refrescar</button>
           <a id="btnDescargar" class="btn" href="#" download>Descargar CSV</a>
         </div>
@@ -59,6 +66,7 @@
           <table id="tabla"><thead><tr><th>Municipio</th><th>Año</th><th>Población</th></tr></thead><tbody></tbody></table>
         </div>
         <div id="msg" class="muted" style="margin-top:8px"></div>
+        <div id="debugCsv" class="debug" hidden></div>
       </div>
     </section>
 
@@ -81,6 +89,7 @@
       </div>
       <div class="section">
         <div id="map"></div>
+        <div id="debugGeo" class="debug" hidden></div>
       </div>
     </section>
   </main>
@@ -88,56 +97,99 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     // ====== CONFIG ======
+    const bust = u => u + (u.includes('?') ? '&' : '?') + 'v=' + Date.now();
+
+    // ARCHIVOS EN RAÍZ (sin carpeta data/) y fallback a data/ y raw
     const CSV_URLS = [
+      location.origin + '/dane_tolima_poblacion.csv',
       location.origin + '/data/dane_tolima_poblacion.csv',
+      'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/dane_tolima_poblacion.csv',
+      'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/data/dane_tolima_poblacion.csv',
+      'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/dane_tolima_poblacion.csv',
       'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/dane_tolima_poblacion.csv',
-      'https://raw.githubusercontent.com/fundacionreaching/data/main/dane_tolima_poblacion.csv'
+      'https://raw.githubusercontent.com/fundacionreaching/data/main/dane_tolima_poblacion.csv',
+      'https://raw.githubusercontent.com/fundacionreaching/data/main/data/dane_tolima_poblacion.csv'
     ];
+
     const RUTAS = {
       municipios: [
+        '/tolima_municipios.geojson',
         '/data/tolima_municipios.geojson',
-        '/data/data/data/data/tolima_municipios.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/tolima_municipios.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/data/tolima_municipios.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/tolima_municipios.geojson',
         'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/tolima_municipios.geojson',
-        'https://raw.githubusercontent.com/fundacionreaching/data/main/tolima_municipios.geojson'
+        'https://raw.githubusercontent.com/fundacionreaching/data/main/tolima_municipios.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/data/main/data/tolima_municipios.geojson'
       ],
       comunas: [
+        '/ibague_comunas.geojson',
         '/data/ibague_comunas.geojson',
-        '/data/data/data/data/ibague_comunas.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/ibague_comunas.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/data/ibague_comunas.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/ibague_comunas.geojson',
         'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/ibague_comunas.geojson',
-        'https://raw.githubusercontent.com/fundacionreaching/data/main/ibague_comunas.geojson'
+        'https://raw.githubusercontent.com/fundacionreaching/data/main/ibague_comunas.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/data/main/data/ibague_comunas.geojson'
       ],
       corregimientos: [
+        '/ibague_corregimientos.geojson',
         '/data/ibague_corregimientos.geojson',
-        '/data/data/data/data/ibague_corregimientos.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/ibague_corregimientos.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/index-html/data/ibague_corregimientos.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/ibague_corregimientos.geojson',
         'https://raw.githubusercontent.com/fundacionreaching/fundacionreaching.github.io/main/data/ibague_corregimientos.geojson',
-        'https://raw.githubusercontent.com/fundacionreaching/data/main/ibague_corregimientos.geojson'
+        'https://raw.githubusercontent.com/fundacionreaching/data/main/ibague_corregimientos.geojson',
+        'https://raw.githubusercontent.com/fundacionreaching/data/main/data/ibague_corregimientos.geojson'
       ]
     };
 
     // ====== UTIL ======
     const norm = s => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
-    async function fetchFirst(urls){
+    async function fetchFirst(urls, as='json'){
       const list = Array.isArray(urls) ? urls : [urls];
-      for (const u of list){
-        try{ const r = await fetch(u,{cache:'no-store'}); if(r.ok){ return {url:u, json: await r.json()}; } }catch(_){ }
+      const out = [];
+      for (const u0 of list){
+        const u = (as==='json') ? bust(u0) : bust(u0);
+        try{
+          const r = await fetch(u,{cache:'no-store'});
+          out.push({url:u0, status:r.status});
+          if(r.ok){ return {url:u0, body: (as==='json'? await r.json(): await r.text()), log:out}; }
+        }catch(e){ out.push({url:u0, status:e.message}); }
       }
-      throw new Error('No se pudo cargar la capa desde ninguna ruta');
+      return {url:null, body:null, log:out};
     }
 
     // ====== CSV ======
     async function fetchCSV(){
-      for(const u of CSV_URLS){ try{ const r=await fetch(u,{cache:'no-store'}); if(r.ok){ return {url:u, text: await r.text()}; } }catch(_){ } }
-      throw new Error('No se pudo cargar CSV');
+      const try1 = await fetchFirst(CSV_URLS, 'text');
+      if(try1.body){ return try1; }
+      throw new Error(JSON.stringify(try1.log));
     }
     function parseCSV(text){
       const lines = text.split(/\r?\n/).filter(Boolean);
       if(lines.length<2) return [];
-      const headers = lines[0].split(',').map(h=>h.trim().toLowerCase());
-      const idxM = headers.findIndex(h=>/municipio|mpio|ciudad/.test(h));
-      const idxA = headers.findIndex(h=>/año|anio|year/.test(h));
-      const idxP = headers.findIndex(h=>/poblaci|pob_total|total/.test(h));
-      return lines.slice(1).map(row=>{ const cols=row.split(','); return {muni:(cols[idxM]||'').trim(), anio:Number((cols[idxA]||'').trim()), pob:Number((cols[idxP]||'').replace(/\./g,''))}; })
-        .filter(r=>r.muni && r.anio && !isNaN(r.pob));
+      const cand = lines[0];
+      const delim = (cand.split(';').length > cand.split(',').length) ? ';' : ',';
+      const re = new RegExp(`([^"${delim}]+|"(?:[^"\\]|\\.|"")*"|(?<=${delim})(?=${delim})|^$)`, 'g');
+      function splitRow(row){
+        const m = row.match(re);
+        const arr = (m && m.length) ? m : row.split(delim);
+        return arr.map(s=>{ let v = s.trim(); if(v.startsWith('"') && v.endsWith('"')) v = v.slice(1,-1).replace(/""/g,'"'); return v; });
+      }
+      const headers = splitRow(lines[0]).map(h=>h.trim().toLowerCase());
+      const idxM = headers.findIndex(h=>/(^|\b)(municipio|mpio|ciudad)(\b|$)/.test(h));
+      const idxA = headers.findIndex(h=>/(^|\b)(año|anio|year)(\b|$)/.test(h));
+      const idxP = headers.findIndex(h=>/(^|\b)(poblaci|pob_total|total)(\b|$)/.test(h));
+      const out = [];
+      for(let i=1;i<lines.length;i++){
+        const cols = splitRow(lines[i]);
+        const muni = (cols[idxM]||'').trim();
+        const anio = Number((cols[idxA]||'').toString().trim());
+        const pob  = Number((cols[idxP]||'').toString().replace(/\./g,'').replace(/\s/g,'').replace(/,/g,'').trim());
+        if(muni && anio && !Number.isNaN(pob)) out.push({muni, anio, pob});
+      }
+      return out;
     }
 
     // ====== UI DANE ======
@@ -148,6 +200,7 @@
     const KPI_A = document.getElementById('kpiAnio');
     const KPI_P = document.getElementById('kpiPoblacion');
     const MSG   = document.getElementById('msg');
+    const DBGCSV= document.getElementById('debugCsv');
 
     let DANE=[], byYear=new Map(), YEARS=[];
 
@@ -155,17 +208,17 @@
       byYear.clear();
       YEARS = Array.from(new Set(DANE.map(d=>d.anio))).sort((a,b)=>a-b);
       YEARS.forEach(a=>{ const map=new Map(); DANE.filter(d=>d.anio===a).forEach(d=>map.set(norm(d.muni), d.pob)); byYear.set(a,map); });
-      // llenar selects
       const municipios = Array.from(new Set(DANE.map(d=>d.muni))).sort();
       SELM.innerHTML = municipios.map(m=>`<option>${m}</option>`).join('');
       SELA.innerHTML = YEARS.map(y=>`<option>${y}</option>`).join('');
       const ibg = municipios.find(m=>/ibague|ibagué/i.test(m)); if(ibg) SELM.value=ibg;
-      SELA.value = YEARS[YEARS.length-1];
+      SELA.value = YEARS[YEARS.length-1]||'';
     }
 
     function renderTabla(){
       const muni = SELM.value; const rows = DANE.filter(d=>d.muni===muni).sort((a,b)=>a.anio-b.anio);
-      TBL.innerHTML = rows.map(r=>`<tr><td>${r.muni}</td><td>${r.anio}</td><td>${r.pob.toLocaleString('es-CO')}</td></tr>`).join('');
+      const T = document.getElementById('tabla').querySelector('tbody');
+      T.innerHTML = rows.map(r=>`<tr><td>${r.muni}</td><td>${r.anio}</td><td>${r.pob.toLocaleString('es-CO')}</td></tr>`).join('');
       const anio = Number(SELA.value);
       const sel = rows.find(r=>r.anio===anio);
       KPI_M.textContent = muni || '—';
@@ -195,14 +248,18 @@
     }
 
     async function cargarCapa(tipo){
+      const DBG = document.getElementById('debugGeo');
       try{
         const anio = Number(SELA.value);
         const byName = byYear.get(anio) || new Map();
         const nameKeys=['MUNICIPIO','NOMBRE','NOMBRE_COM','COMUNA','CORREGIM','name'];
-        const {json:geo} = await fetchFirst(RUTAS[tipo]);
+        const probe = await fetchFirst(RUTAS[tipo], 'json');
+        DBG.hidden=false; DBG.innerHTML = `<div><b>Rutas ${tipo}</b></div>` + probe.log.map(x=>`<div><code>${x.url}</code> → <span class="chip ${x.status===200?'ok':(x.status===404?'err':'warn')}">${x.status}</span></div>`).join('');
+        if(!probe.body){ return; }
+        const geo = probe.body;
         const vals=[];
         function pob(props){
-          if(typeof props.poblacion==='number') return props.poblacion; // si ya viene en capa
+          if(typeof props.poblacion==='number') return props.poblacion;
           const nom = norm(nameKeys.map(k=>props[k]).find(Boolean));
           const v = byName.get(nom);
           return (typeof v==='number') ? v : null;
@@ -214,28 +271,35 @@
         layer.setStyle(f=>{ const v=pob(f.properties||{}); return {color:'#1f2937', weight:1, opacity:1, fillOpacity:.8, fillColor: scale(v)}; });
         try{ map.fitBounds(layer.getBounds(), {padding:[12,12]}); }catch(_){ }
         drawLegend(scale, vals.length? vals.sort((a,b)=>a-b):[0,1]);
-      }catch(e){ console.warn('No se pudo cargar la capa', e); }
+      }catch(e){ DBG.hidden=false; DBG.innerHTML = `<span class="chip err">Error capa</span> <code>${e.message||e}</code>`; }
     }
 
     // ====== BOOT ======
     (async()=>{
+      document.getElementById('btnRefrescar').onclick = ()=> location.href = bust(location.href);
+      document.getElementById('btnDiag').onclick = async ()=>{
+        const p = await fetchFirst(CSV_URLS, 'text');
+        const DBGCSV= document.getElementById('debugCsv');
+        DBGCSV.hidden=false; DBGCSV.innerHTML = `<div><b>Rutas CSV</b></div>` + p.log.map(x=>`<div><code>${x.url}</code> → <span class="chip ${x.status===200?'ok':(x.status===404?'err':'warn')}">${x.status}</span></div>`).join('');
+      };
+
       try{
-        const {url,text} = await fetchCSV();
-        DANE = parseCSV(text);
+        const probe = await fetchFirst(CSV_URLS, 'text');
+        const DBGCSV= document.getElementById('debugCsv');
+        DBGCSV.hidden=false; DBGCSV.innerHTML = `<div><b>Rutas CSV</b></div>` + probe.log.map(x=>`<div><code>${x.url}</code> → <span class="chip ${x.status===200?'ok':(x.status===404?'err':'warn')}">${x.status}</span></div>`).join('');
+        if(!probe.body){ MSG.textContent = 'No se pudo cargar CSV desde ninguna ruta.'; return; }
+        const text = probe.body;
+        const url = probe.url;
+        const datos = parseCSV(text);
+        if(!datos.length){ MSG.textContent = 'CSV sin filas válidas. Encabezados esperados: Municipio, Año, Población.'; return; }
+        DANE = datos;
         document.getElementById('btnDescargar').href = url;
-        if(!DANE.length){ MSG.textContent = 'CSV sin filas válidas. Revisa encabezados: Municipio, Año, Población.'; return; }
-        // Indexar y llenar selects
-        byYear = new Map(); indexDane(); renderTabla();
-        // Eventos UI
-        document.getElementById('btnRefrescar').addEventListener('click', ()=>{ location.reload(); });
-        SELM.addEventListener('change', renderTabla);
-        SELA.addEventListener('change', ()=>{ renderTabla(); cargarCapa(document.getElementById('selCapa').value); });
-        document.getElementById('selCapa').addEventListener('change', e=> cargarCapa(e.target.value));
-        // Capa inicial
+        indexDane();
+        renderTabla();
         document.getElementById('selCapa').value='municipios';
         await cargarCapa('municipios');
         MSG.textContent = `Registros cargados: ${DANE.length.toLocaleString('es-CO')}`;
-      }catch(e){ MSG.textContent = 'No se pudo cargar CSV. Verifica /data/dane_tolima_poblacion.csv'; }
+      }catch(e){ MSG.textContent = 'Error cargando CSV: ' + (e.message||e); }
     })();
   </script>
 </body>
